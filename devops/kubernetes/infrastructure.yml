@@ -1,0 +1,209 @@
+# ─────────────────────────────────────────────────────
+#  Frontend Deployment
+# ─────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: safelayers-frontend
+  namespace: safelayers
+  labels:
+    app: safelayers-frontend
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: safelayers-frontend
+  template:
+    metadata:
+      labels:
+        app: safelayers-frontend
+        tier: frontend
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101  # nginx user
+      containers:
+        - name: frontend
+          image: ghcr.io/group8/safelayers-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["NET_BIND_SERVICE"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: safelayers-frontend
+  namespace: safelayers
+spec:
+  selector:
+    app: safelayers-frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
+
+---
+# ─────────────────────────────────────────────────────
+#  Namespace
+# ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: safelayers
+  labels:
+    istio-injection: enabled  # Auto-inject Istio sidecar
+
+---
+# ─────────────────────────────────────────────────────
+#  Kubernetes Secrets (base64-encoded values)
+#  Generate with: echo -n "value" | base64
+#  Apply with: kubectl apply -f secrets.yml
+# ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: safelayers-secrets
+  namespace: safelayers
+type: Opaque
+data:
+  # Replace these with your real base64-encoded values
+  # echo -n "your_mongodb_uri" | base64
+  mongodb-uri: bW9uZ29kYitzcnY6Ly91c2VyOnBhc3NAY2x1c3Rlci54eHh4LnRlc3Q=
+  jwt-secret: c2FmZWxheWVyc19qd3Rfc2VjcmV0X2NoYW5nZV90aGlz
+  jwt-refresh-secret: c2FmZWxheWVyc19yZWZyZXNoX3NlY3JldF9jaGFuZ2VfdGhpcw==
+
+---
+# ─────────────────────────────────────────────────────
+#  Network Policy — Zero Trust
+#  Only allows traffic between known pods
+# ─────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: safelayers-network-policy
+  namespace: safelayers
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Frontend: allow from internet
+    - from: []
+      ports:
+        - protocol: TCP
+          port: 80
+    # Backend: ONLY allow from frontend pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: safelayers-frontend
+      ports:
+        - protocol: TCP
+          port: 5000
+  egress:
+    # Allow DNS
+    - ports:
+        - protocol: UDP
+          port: 53
+    # Allow backend to reach MongoDB Atlas (external)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 27017
+    # Allow frontend → backend
+    - to:
+        - podSelector:
+            matchLabels:
+              app: safelayers-backend
+      ports:
+        - protocol: TCP
+          port: 5000
+
+---
+# ─────────────────────────────────────────────────────
+#  Istio PeerAuthentication — enforce mTLS STRICT mode
+#  All pod-to-pod communication must be mutually authenticated
+# ─────────────────────────────────────────────────────
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: safelayers-mtls
+  namespace: safelayers
+spec:
+  mtls:
+    mode: STRICT  # Reject any non-mTLS traffic between pods
+
+---
+# ─────────────────────────────────────────────────────
+#  Istio AuthorizationPolicy — RBAC at service mesh level
+# ─────────────────────────────────────────────────────
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: safelayers-authz
+  namespace: safelayers
+spec:
+  selector:
+    matchLabels:
+      app: safelayers-backend
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/safelayers/sa/safelayers-frontend"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+            paths: ["/api/*"]
+
+---
+# ─────────────────────────────────────────────────────
+#  HorizontalPodAutoscaler — auto-scale under load
+# ─────────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: safelayers
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: safelayers-backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
