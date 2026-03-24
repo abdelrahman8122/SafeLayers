@@ -116,7 +116,7 @@ jobs:
         run: npm install -g @railway/cli
 
       - name: Deploy backend service
-        run: railway up backend --ci --project "$RAILWAY_PROJECT_ID" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_BACKEND_SERVICE"
+        run: railway up backend --path-as-root --ci --project "$RAILWAY_PROJECT_ID" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_BACKEND_SERVICE"
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
@@ -141,7 +141,7 @@ jobs:
         run: npm install -g @railway/cli
 
       - name: Deploy frontend service
-        run: railway up frontend --ci --project "$RAILWAY_PROJECT_ID" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_FRONTEND_SERVICE"
+        run: railway up frontend --path-as-root --ci --project "$RAILWAY_PROJECT_ID" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_FRONTEND_SERVICE"
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
