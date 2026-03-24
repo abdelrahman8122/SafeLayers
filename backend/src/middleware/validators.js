@@ -1,9 +1,15 @@
 const { body, validationResult } = require('express-validator');
+const logger = require('../config/logger');
 
 // ─── Reusable validation handler ──────────────────────
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    logger.warn(
+      `Validation failed: ${req.method} ${req.originalUrl} from ${req.ip} -> ${JSON.stringify(
+        errors.array().map((e) => ({ field: e.path, message: e.msg }))
+      )}`
+    );
     return res.status(400).json({
       error: 'Validation failed',
       details: errors.array().map(e => ({ field: e.path, message: e.msg })),
@@ -32,7 +38,7 @@ const registerRules = [
     .trim()
     .notEmpty().withMessage('Full name is required')
     .isLength({ min: 2, max: 100 }).withMessage('Name must be 2-100 characters')
-    .matches(/^[a-zA-Z\s]+$/).withMessage('Name must contain only letters'),
+    .matches(/^[\p{L}\s.'-]+$/u).withMessage('Name contains invalid characters'),
   body('email')
     .trim()
     .isEmail().withMessage('Valid email is required')

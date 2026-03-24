@@ -158,6 +158,7 @@ exports.register = async (req, res, next) => {
     const expectedAdminSetupKey = process.env.ADMIN_SETUP_KEY || 'safelayers-admin-demo';
 
     if (requestedRole === 'admin' && adminSetupKey !== expectedAdminSetupKey) {
+      logger.warn(`REGISTER DENIED: invalid admin setup key from IP ${req.ip}`);
       return res.status(403).json({ error: 'Invalid admin setup key.' });
     }
 

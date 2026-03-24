@@ -14,7 +14,7 @@ const errorHandler = (err, req, res, next) => {
   // Mongoose validation error
   if (err.name === 'ValidationError') {
     statusCode = 400;
-    message = Object.values(err.errors).map(e => e.message).join(', ');
+    message = Object.values(err.errors).map((e) => e.message).join(', ');
   }
 
   // Mongoose cast error (invalid ObjectId)
@@ -34,9 +34,11 @@ const errorHandler = (err, req, res, next) => {
     message = 'Invalid or missing CSRF token';
   }
 
-  // Log server errors
+  // Log server and client errors (client errors are useful in production debugging).
   if (statusCode >= 500) {
-    logger.error(`${statusCode} — ${message}\n${err.stack}`);
+    logger.error(`${statusCode} - ${message}\n${err.stack}`);
+  } else if (statusCode >= 400) {
+    logger.warn(`${statusCode} ${req.method} ${req.originalUrl} from ${req.ip} - ${message}`);
   }
 
   res.status(statusCode).json({
