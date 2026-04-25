@@ -452,9 +452,6 @@ export default function SignupPage() {
                     onChange={(event) => setField('adminSetupKey', event.target.value)}
                     required
                   />
-                  <div style={{ fontSize: '.72rem', color: 'var(--text3)', marginTop: 4 }}>
-                    Demo default key: <span className="mono">safelayers-admin-demo</span>
-                  </div>
                 </div>
               )}
 
