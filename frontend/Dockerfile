@@ -28,6 +28,6 @@ ARG BACKEND_API_URL
 ENV BACKEND_API_URL=$BACKEND_API_URL
 
 HEALTHCHECK --interval=30s --timeout=5s \
-  CMD sh -c 'wget -qO- "http://127.0.0.1:${PORT}/health" || exit 1'
+  CMD sh -c 'wget -qO- "http://127.0.0.1:${PORT}/api/health" || exit 1'
 
 CMD ["/bin/sh", "-c", "envsubst '$$BACKEND_API_URL $$PORT' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
