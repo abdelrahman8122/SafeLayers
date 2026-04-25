@@ -1,6 +1,7 @@
 # ─── Stage 1: Build ───────────────────────────────────
 FROM node:20-alpine AS builder
 
+ARG RAILWAY_ENVIRONMENT
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
