@@ -1,7 +1,9 @@
 # ─── Stage 1: Build ───────────────────────────────────
 FROM node:20-alpine AS builder
 
-ARG RAILWAY_ENVIRONMENT
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -22,7 +24,8 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
 
 ENV PORT=80
-ENV BACKEND_API_URL=http://backend:5000
+ARG BACKEND_API_URL
+ENV BACKEND_API_URL=$BACKEND_API_URL
 
 HEALTHCHECK --interval=30s --timeout=5s \
   CMD sh -c 'wget -qO- "http://127.0.0.1:${PORT}/health" || exit 1'
